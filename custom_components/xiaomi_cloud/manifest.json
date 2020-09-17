@@ -1,0 +1,10 @@
+{
+  "domain": "xiaomi_cloud",
+  "name": "Xiaomi Cloud",
+  "documentation": "https://github.com/fineemb/Colorfulclouds-weather",
+  "issue_tracker": "https://github.com/fineemb/Colorfulclouds-weather/issues",
+  "dependencies": [],
+  "config_flow": true,
+  "codeowners": ["@fineemb"],
+  "requirements": []
+}

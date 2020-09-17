@@ -1,0 +1,7 @@
+{
+    "name": "小米云服务",
+    "domains": ["device_tracker","sensor"],
+    "render_readme": true,
+    "homeassistant": "0.99.9",
+    "country": ["CN"]
+  }
