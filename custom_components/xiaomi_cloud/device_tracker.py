@@ -2,6 +2,7 @@
 """Support for the Xiaomi device tracking."""
 import logging
 
+
 from homeassistant.components.device_tracker import SOURCE_TYPE_GPS
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.const import (
@@ -15,12 +16,14 @@ from homeassistant.helpers import device_registry
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.helpers.entity import Entity
 
 from .const import (
     DOMAIN,
     COORDINATOR,
     SIGNAL_STATE_UPDATED
 )
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry, async_add_ent
         # _LOGGER.debug("device is : %s", i)
     async_add_entities(devices, True)
 
-class XiaomiDeviceEntity(TrackerEntity, RestoreEntity):
+class XiaomiDeviceEntity(TrackerEntity, RestoreEntity, Entity):
     """Represent a tracked device."""
 
     def __init__(self, hass, coordinator, vin) -> None:
@@ -52,11 +55,11 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity):
 
     async def async_update(self):
         """Update Colorfulclouds entity."""   
-        # _LOGGER.debug("async_update")
+        _LOGGER.debug("async_update")
         await self.coordinator.async_request_refresh()
-        self._accuracy = self.coordinator.data[self._vin]["device_accuracy"]
-        self._battery = self.coordinator.data[self._vin]["device_power"]
-        self._location = (self.coordinator.data[self._vin]["device_lat"], self.coordinator.data[self._vin]["device_lon"])
+        # self._accuracy = self.coordinator.data[self._vin]["device_accuracy"]
+        # self._battery = self.coordinator.data[self._vin]["device_power"]
+        # self._location = (self.coordinator.data[self._vin]["device_lat"], self.coordinator.data[self._vin]["device_lon"])
         
     async def async_added_to_hass(self):
         """Subscribe for update from the hub"""
@@ -68,9 +71,7 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity):
             await self.async_update_ha_state(True)
 
         self.async_on_remove(
-            async_dispatcher_connect(
-                self._hass, SIGNAL_STATE_UPDATED, async_update_state
-            )
+            self.coordinator.async_add_listener(self.async_write_ha_state)
         )
         
     @property
@@ -85,6 +86,7 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity):
             "last_update": self.coordinator.data[self._vin]["device_location_update_time"],
             "coordinate_type": self.coordinator.data[self._vin]["coordinate_type"],
             "device_phone": self.coordinator.data[self._vin]["device_phone"],
+            "imei": self.coordinator.data[self._vin]["imei"],
         }
 
         return attrs
@@ -125,7 +127,7 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity):
             "identifiers": {(DOMAIN, self._unique_id)},
             "name": self._name,
             "manufacturer": "Xiaomi",
-            "entry_type": "service",
+            "entry_type": "device",
             "sw_version": self.sw_version,
             "model": self._name
         }
@@ -133,7 +135,7 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity):
     @property
     def should_poll(self):
         """Return the polling requirement of the entity."""
-        return True
+        return False
 
     @property
     def source_type(self):

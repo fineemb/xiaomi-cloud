@@ -4,10 +4,10 @@
  * @Description   : 
  * @Date          : 2020-08-26 16:20:12
  * @LastEditors   : fineemb
- * @LastEditTime  : 2020-09-17 20:43:02
+ * @LastEditTime  : 2020-09-24 19:14:04
 -->
 
-# 彩云天气
+# 小米云服务
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 
@@ -20,6 +20,9 @@
 + ### v1.0
   + 支持多设备
   + 设备查找
++ ### v1.1
+  + 增加坐标类型选择
+  + 增加位置刷新频率设置,单位为分钟(过高的频率会导致手机耗电严重)
   
 ## 安装配置
 

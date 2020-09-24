@@ -26,7 +26,10 @@
         "step": {
             "user": {
                 "data": {
-                    "scan_interval": "位置更新时间间隔"
+                    "scan_interval": "位置更新时间间隔",
+                    "coordinate_type": "坐标体系",
+                    "biadu": "百度",
+                    "original": "原始"
                 }
             }
         }

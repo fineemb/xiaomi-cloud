@@ -30,6 +30,10 @@ from .const import (
     DEFAULT_WAKE_ON_START,
     DOMAIN,
     MIN_SCAN_INTERVAL,
+    CONF_COORDINATE_TYPE,
+    CONF_COORDINATE_TYPE_BAIDU,
+    CONF_COORDINATE_TYPE_ORIGINAL,
+    CONF_COORDINATE_TYPE_GOOGLE
 )
 
 
@@ -59,7 +63,7 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
         if user_input is not None:
             # Check if entered host is already in HomeAssistant
-            existing = await self._check_existing(user_input[CONF_NAME])
+            existing = await self._check_existing(user_input[CONF_USERNAME])
             if existing:
                 return self.async_abort(reason="already_configured")
 
@@ -258,8 +262,12 @@ class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 5),
-                    ):int
+                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 15),
+                    ):int,
+                    vol.Optional(
+                        CONF_COORDINATE_TYPE,
+                        default=self.config_entry.options.get(CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_ORIGINAL),
+                    ): vol.In([CONF_COORDINATE_TYPE_ORIGINAL, CONF_COORDINATE_TYPE_BAIDU, CONF_COORDINATE_TYPE_GOOGLE])
                 }
             ),
         )
