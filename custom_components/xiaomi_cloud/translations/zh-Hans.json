@@ -4,7 +4,7 @@
         "step": {
             "user": {
                 "title": "小米云服务",
-                "description": "如果您需要配置方面的帮助，请查看此处: https://github.com/fineemb/Colorfulclouds-weather",
+                "description": "如果您需要配置方面的帮助，请查看此处: https://github.com/fineemb/xiaomi-cloud",
                 "data": {
                     "password": "密码",
                     "username": "账号"
