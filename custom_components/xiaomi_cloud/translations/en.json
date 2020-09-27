@@ -1,32 +1,33 @@
 {
     "config": {
-        "title": "小米云服务",
+        "title": "Xiaomi Cloud",
         "step": {
             "user": {
-                "title": "小米云服务",
-                "description": "如果您需要配置方面的帮助，请查看此处: https://github.com/fineemb/Colorfulclouds-weather",
+                "title": "Xiaomi Cloud",
+                "description": "If you need help with the configuration have a look here: https://github.com/fineemb/xiaomi-cloud",
                 "data": {
-                    "password": "密码",
-                    "username": "邮箱"
+                    "password": "Password",
+                    "username": "Username"
                 }
             }
         },
         "error": {
-            "get_sign_failed": "获得Sign失败",
-            "login_url_failed": "登录失败",
-            "login_mi_cloud_failed": "登录小米云失败",
-            "get_device_failed": "没有找到设备"
+            "get_sign_failed": "Get sign failed",
+            "login_url_failed": "Login failed",
+            "login_mi_cloud_failed": "Login xiaomi cloud failed",
+            "get_device_failed": "Get device failed"
         },
         "abort": {
-            "single_instance_allowed": "仅允许单个配置.",
-            "already_configured": "请勿重复配置."
+            "single_instance_allowed": "Only a single configuration of Colorfulclouds Weather is allowed.",
+            "already_configured": "This is already configured."
         }
     },
     "options": {
         "step": {
             "user": {
                 "data": {
-                    "scan_interval": "位置更新时间间隔"
+                    "scan_interval": "Scan interval",
+                    "coordinate_type": "Coordinate type"
                 }
             }
         }

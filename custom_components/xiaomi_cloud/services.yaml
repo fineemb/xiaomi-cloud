@@ -1,0 +1,44 @@
+# #############################################################################
+#   @Author        : fineemb
+#   @Github        : https://github.com/fineemb
+#   @Description   : 
+#   @Date          : 2019-09-07 02:58:01
+#   @LastEditors   : fineemb
+#   @LastEditTime  : 2020-09-26 20:35:23
+# #############################################################################
+
+
+noise:
+  description: 设备发声。
+  fields:
+    imei:
+      description: 指定设备的imei.
+      example: '22275750525251265a4426275c7c6b25585840212f59436b507120317c4'
+find:
+  description: 查找设备，更新设备定位
+  fields:
+    imei:
+      description: 指定设备的imei.
+      example: '22275750525251265a4426275c7c6b25585840212f59436b507120317c4'
+lost:
+  description: 丢失模式
+  fields:
+    imei:
+      description: 指定设备的imei.
+      example: '22275750525251265a4426275c7c6b25585840212f59436b507120317c4'
+    content:
+      description: 锁定设备屏幕上显示的留言.
+      example: '捡到手机的好心人，手机里有我十分重要的信息，我希望能找回。麻烦您与我联系，非常感谢。'
+    phone:
+      description: 手机号码
+      example: '1396865665'
+    onlinenotify:
+      description: 定位到丢失设备时，短信通知此号码
+      example: true
+      
+clipboard:
+  description: 云剪贴板
+  fields:
+    text:
+      description: 输入需要发送到设备剪贴板的文字
+      example: '云剪贴板'

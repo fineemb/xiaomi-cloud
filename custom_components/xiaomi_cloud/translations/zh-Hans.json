@@ -7,7 +7,7 @@
                 "description": "如果您需要配置方面的帮助，请查看此处: https://github.com/fineemb/Colorfulclouds-weather",
                 "data": {
                     "password": "密码",
-                    "username": "邮箱"
+                    "username": "账号"
                 }
             }
         },
@@ -27,9 +27,7 @@
             "user": {
                 "data": {
                     "scan_interval": "位置更新时间间隔",
-                    "coordinate_type": "坐标体系",
-                    "biadu": "百度",
-                    "original": "原始"
+                    "coordinate_type": "坐标体系"
                 }
             }
         }

@@ -78,11 +78,6 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 
                 session = async_get_clientsession(self.hass)
-                # if self.login_result is True:
-                #     tmp = await self._send_find_device_command(session)
-                #     if tmp is True:
-                #         # find device success
-
                 session.cookie_jar.clear()
                 tmp = await self._get_sign(session)
                 if not tmp:
@@ -111,11 +106,6 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                                     self._errors["base"] = "get_device_failed"
                                     return await self._show_config_form(user_input)
                                 else:
-                                    # data = tmp
-                                    # if len(data)>0:
-                                    #     for i in range(len(data)):
-                                    #         await self.async_set_unique_id(data[i]['imei'])
-                                    #     self._abort_if_unique_id_configured()
                                     return self.async_create_entry(
                                         title=user_input[CONF_USERNAME], data=user_input
                                     )
@@ -262,7 +252,7 @@ class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 15),
+                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 5),
                     ):int,
                     vol.Optional(
                         CONF_COORDINATE_TYPE,

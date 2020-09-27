@@ -72,90 +72,26 @@ async def async_setup_entry(hass, config_entry) -> bool:
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(config_entry, DEVICE_TRACKER)
     )
-    async def _get_sign(self, session):
-        url = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-        pattern = re.compile(r'_sign":"(.*?)",')
-        
-        try:
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.get(url, headers=self._headers)
-            self._cookies['pass_trace'] = r.headers.getall('Set-Cookie')[2].split(";")[0].split("=")[1]
-            self._sign = pattern.findall(await r.text())[0]
-            return True
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
-            return False
 
-    async def _serviceLoginAuth2(self, session, captCode=None):
-        url = 'https://account.xiaomi.com/pass/serviceLoginAuth2'
-        self._headers['Content-Type'] = 'application/x-www-form-urlencoded'
-        self._headers['Accept'] = '*/*'
-        self._headers['Origin'] = 'https://account.xiaomi.com'
-        self._headers[
-            'Referer'] = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-        self._headers['Cookie'] = 'pass_trace={};'.format(
-            self._cookies['pass_trace'])
-
-        auth_post_data = {'_json': 'true',
-                          '_sign': self._sign,
-                          'callback': 'https://i.mi.com/sts',
-                          'hash': hashlib.md5(self._password.encode('utf-8')).hexdigest().upper(),
-                          'qs': '%3Fsid%253Di.mi.com%26sid%3Di.mi.com%26_locale%3Dzh_CN%26_snsNone%3Dtrue',
-                          'serviceParam': '{"checkSafePhone":false}',
-                          'sid': 'i.mi.com',
-                          'user': self._username}
-        try:
-            if captCode != None:
-                url = 'https://account.xiaomi.com/pass/serviceLoginAuth2?_dc={}'.format(
-                    int(round(time.time() * 1000)))
-                auth_post_data['captCode'] = captCode
-                self._headers['Cookie'] = self._headers['Cookie'] + \
-                                          '; ick={}'.format(self._cookies['ick'])
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.post(url, headers=self._headers, data=auth_post_data, cookies=self._cookies)
-            self._cookies['pwdToken'] = r.cookies.get('passToken').value
-            self._serviceLoginAuth2_json = json.loads((await r.text())[11:])
-            return True
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
-            return False
-
-    async def _login_miai(self, session):
-        serviceToken = "nonce={}&{}".format(
-            self._serviceLoginAuth2_json['nonce'], self._serviceLoginAuth2_json['ssecurity'])
-        serviceToken_sha1 = hashlib.sha1(serviceToken.encode('utf-8')).digest()
-        base64_serviceToken = base64.b64encode(serviceToken_sha1)
-        loginmiai_header = {'User-Agent': 'MISoundBox/1.4.0,iosPassportSDK/iOS-3.2.7 iOS/11.2.5',
-                            'Accept-Language': 'zh-cn', 'Connection': 'keep-alive'}
-        url = self._serviceLoginAuth2_json['location'] + \
-              "&clientSign=" + parse.quote(base64_serviceToken.decode())
-        try:
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.get(url, headers=loginmiai_header)
-            if r.status == 200:
-                self._Service_Token = r.cookies.get('serviceToken').value
-                self.userId = r.cookies.get('userId').value
-                return True
-            else:
-                return False
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
-            return False
-
-    def services(call):
+    async def services(call):
         """Handle the service call."""
-        # https://i.mi.com/find/device/22275750525251265a4426275c7c6b25585840212f59436b507120317c47484b_af70221e/noise
-        # https://i.mi.com/find/device/22275750525251265a4426275c7c6b25585840212f59436b507120317c47484b_af70221e/lost
-        # https://i.mi.com/find/device/22275750525251265a4426275c7c6b25585840212f59436b507120317c47484b_af70221e/wipe
-        # https://i.mi.com/find/device/22275750525251265a4426275c7c6b25585840212f59436b507120317c47484b_af70221e/lock
-        # https://i.mi.com/clipboard/lite/text
-
-        session = async_get_clientsession(hass)
-        # tmp = await _get_sign(session)
-
-        _LOGGER.debug("service: %s", call.service)
-        _LOGGER.debug("Username: %s", username)
-        _LOGGER.debug("password: %s", password)
+        imei = call.data.get("imei")
+        service = call.service
+        if service == "noise":
+            await coordinator._send_command({'service':'noise','data':{'imei':imei}})
+        elif service == "find":
+            await coordinator._send_command({'service':'find','data':{'imei':imei}})
+        elif service == "lost":
+            await coordinator._send_command({
+                'service':'lost',
+                'data':{
+                    'imei':imei,
+                    'content':call.data.get("content"),
+                    'phone':call.data.get("phone"),
+                    'onlinenotify':call.data.get("onlinenotify")
+                    }})
+        elif service == "clipboard":
+            await coordinator._send_command({'service':'clipboard','data':{'text':call.data.get("text")}})
 
     hass.services.async_register(DOMAIN, "noise", services)
     hass.services.async_register(DOMAIN, "find", services)
@@ -163,7 +99,6 @@ async def async_setup_entry(hass, config_entry) -> bool:
     hass.services.async_register(DOMAIN, "clipboard", services)
 
     return True
-
 
 async def async_unload_entry(hass, config_entry):
     """Unload a config entry."""
@@ -193,8 +128,10 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
         self._sign = None
         self._scan_interval = scan_interval
         self._coordinate_type = coordinate_type
+        self.service_data = None
         self.userId = None
         self.login_result = False
+        self.service = None
 
         update_interval = (
             datetime.timedelta(minutes=self._scan_interval)
@@ -318,6 +255,93 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                 flag = False
         return flag
     
+    async def _send_noise_command(self, session):
+        flag = True
+        imei = self.service_data['imei']  
+        url = 'https://i.mi.com/find/device/{}/noise'.format(
+            imei)
+        _send_noise_command_header = {
+            'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
+        data = {'userId': self.userId, 'imei': imei,
+                'auto': 'false', 'channel': 'web', 'serviceToken': self._Service_Token}
+        _LOGGER.debug("send noise command: %s", url)
+        try:
+            with async_timeout.timeout(15, loop=self.hass.loop):
+                r = await session.post(url, headers=_send_noise_command_header, data=data)
+            if r.status == 200:
+                flag = True
+                self.service = None
+                self.service_data = None
+            else:
+                flag = False
+                self.login_result = False
+        except BaseException as e:
+            _LOGGER.warning(e.args[0])
+            self.login_result = False
+            flag = False
+        return flag
+
+    async def _send_lost_command(self, session):
+        flag = True
+        imei = self.service_data['imei']  
+        content = self.service_data['content']  
+        phone = self.service_data['phone']  
+        message = {"content":content, "phone": phone}
+        onlinenotify = self.service_data['onlinenotify']
+        url = 'https://i.mi.com/find/device/{}/lost'.format(
+            imei)
+        _send_lost_command_header = {
+            'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
+        data = {'userId': self.userId, 'imei': imei,
+                'deleteCard': 'false', 'channel': 'web', 'serviceToken': self._Service_Token, 'onlineNotify': onlinenotify, 'message':json.dumps(message)}
+        _LOGGER.debug("lost command: %s", url)
+        try:
+            with async_timeout.timeout(15, loop=self.hass.loop):
+                r = await session.post(url, headers=_send_lost_command_header, data=data)
+            _LOGGER.debug("lost res: %s", await r.json())    
+            if r.status == 200:
+                flag = True
+                self.service = None
+                self.service_data = None
+            else:
+                flag = False
+                self.login_result = False
+        except BaseException as e:
+            _LOGGER.warning(e.args[0])
+            self.login_result = False
+            flag = False
+        return flag
+
+    async def _send_clipboard_command(self, session):
+        flag = True
+        text = self.service_data['text']  
+        url = 'https://i.mi.com/clipboard/lite/text'
+        _send_clipboard_command_header = {
+            'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
+        data = {'text': text, 'serviceToken': self._Service_Token}
+        _LOGGER.debug("lost command: %s", url)
+        try:
+            with async_timeout.timeout(15, loop=self.hass.loop):
+                r = await session.post(url, headers=_send_clipboard_command_header, data=data)
+            _LOGGER.debug("lost res: %s", await r.json())    
+            if r.status == 200:
+                flag = True
+                self.service = None
+                self.service_data = None
+            else:
+                flag = False
+                self.login_result = False
+        except BaseException as e:
+            _LOGGER.warning(e.args[0])
+            self.login_result = False
+            flag = False
+        return flag
+  
+    async def _send_command(self, data):
+        self.service_data = data['data']
+        self.service = data['service']
+        await self.async_refresh()
+
     async def _get_device_location(self, session):
         devices_info = []
         for vin in self._device_info:
@@ -374,18 +398,27 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Update data via library."""
         # _LOGGER.debug("update data START")
+        _LOGGER.debug("service: %s", self.service)
         try:
             session = async_get_clientsession(self.hass)
             if self.login_result is True:
-                if self._scan_interval>0:
+                if self.service == "noise":
+                    tmp = await self._send_noise_command(session)
+                elif self.service == 'lost':
+                    tmp = await self._send_lost_command(session)
+                elif self.service == 'clipboard':
+                    tmp = await self._send_clipboard_command(session)
+                elif self._scan_interval>0:
                     tmp = await self._send_find_device_command(session)
-                    if tmp is True:
-                        await asyncio.sleep(15)
-                        tmp = await self._get_device_location(session)
-                        if not tmp:
-                            _LOGGER.info("_get_device_location0 Failed")
-                        else:
-                            _LOGGER.info("_get_device_location0 succeed")
+                if tmp is True:
+                    await asyncio.sleep(15)
+                    tmp = await self._get_device_location(session)
+                    if not tmp:
+                        _LOGGER.info("_get_device_location0 Failed")
+                    else:
+                        _LOGGER.info("_get_device_location0 succeed")
+                else:
+                    _LOGGER.info("send_command Failed")
             else:
                 if self._scan_interval>0:
                     session.cookie_jar.clear()
@@ -409,7 +442,14 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                                     else:
                                         _LOGGER.info("get_device info succeed")
                                         self.login_result = True
-                                        tmp = await self._send_find_device_command(session)
+                                        if self.service == "noise":
+                                            tmp = await self._send_noise_command(session)
+                                        elif self.service == 'lost':
+                                            tmp = await self._send_lost_command(session)
+                                        elif self.service == 'clipboard':
+                                            tmp = await self._send_clipboard_command(session)
+                                        else:
+                                            tmp = await self._send_find_device_command(session)
                                         if tmp is True:
                                             await asyncio.sleep(15)
                                             tmp = await self._get_device_location(session)
@@ -418,7 +458,7 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                                             else:
                                                 _LOGGER.info("_get_device_location1 succeed")
                                         else:
-                                            _LOGGER.info("send_find_device_command Failed")
+                                            _LOGGER.info("send_command Failed")
 
         except (
             ClientConnectorError

@@ -57,9 +57,6 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity, Entity):
         """Update Colorfulclouds entity."""   
         _LOGGER.debug("async_update")
         await self.coordinator.async_request_refresh()
-        # self._accuracy = self.coordinator.data[self._vin]["device_accuracy"]
-        # self._battery = self.coordinator.data[self._vin]["device_power"]
-        # self._location = (self.coordinator.data[self._vin]["device_lat"], self.coordinator.data[self._vin]["device_lon"])
         
     async def async_added_to_hass(self):
         """Subscribe for update from the hub"""
