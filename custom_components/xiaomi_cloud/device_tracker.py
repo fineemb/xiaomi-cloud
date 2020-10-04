@@ -48,16 +48,12 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity, Entity):
         self._unique_id = coordinator.data[vin]["imei"]    
         self._name = coordinator.data[vin]["model"]
         self._icon = "mdi:cellphone-android"
-        self._accuracy = coordinator.data[vin]["device_accuracy"]
-        self._battery = coordinator.data[vin]["device_power"]
-        self._location = (self.coordinator.data[self._vin]["device_lat"], self.coordinator.data[self._vin]["device_lon"])
         self.sw_version = coordinator.data[vin]["version"]
 
     async def async_update(self):
         """Update Colorfulclouds entity."""   
         _LOGGER.debug("async_update")
         await self.coordinator.async_request_refresh()
-        
     async def async_added_to_hass(self):
         """Subscribe for update from the hub"""
 
@@ -74,7 +70,7 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity, Entity):
     @property
     def battery_level(self):
         """Return battery value of the device."""
-        return self._battery
+        return self.coordinator.data[self._vin]["device_power"]
 
     @property
     def device_state_attributes(self):
@@ -91,17 +87,17 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity, Entity):
     @property
     def latitude(self):
         """Return latitude value of the device."""
-        return self._location[0]
+        return self.coordinator.data[self._vin]["device_lat"]
 
     @property
     def longitude(self):
         """Return longitude value of the device."""
-        return self._location[1]
+        return self.coordinator.data[self._vin]["device_lon"]
 
     @property
     def location_accuracy(self):
         """Return the gps accuracy of the device."""
-        return self._accuracy
+        return self.coordinator.data[self._vin]["device_accuracy"]
 
     @property
     def icon(self):
