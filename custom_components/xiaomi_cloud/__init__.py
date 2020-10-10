@@ -240,10 +240,10 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                 'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
             data = {'userId': self.userId, 'imei': imei,
                     'auto': 'false', 'channel': 'web', 'serviceToken': self._Service_Token}
-            _LOGGER.debug("find device command: %s", url)
             try:
                 with async_timeout.timeout(15, loop=self.hass.loop):
                     r = await session.post(url, headers=_send_find_device_command_header, data=data)
+                _LOGGER.debug("find_device res: %s", await r.json())
                 if r.status == 200:
                     flag = True
                 else:
@@ -264,10 +264,10 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
             'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
         data = {'userId': self.userId, 'imei': imei,
                 'auto': 'false', 'channel': 'web', 'serviceToken': self._Service_Token}
-        _LOGGER.debug("send noise command: %s", url)
         try:
             with async_timeout.timeout(15, loop=self.hass.loop):
                 r = await session.post(url, headers=_send_noise_command_header, data=data)
+            _LOGGER.debug("noise res: %s", await r.json())
             if r.status == 200:
                 flag = True
                 self.service = None
@@ -294,7 +294,6 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
             'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
         data = {'userId': self.userId, 'imei': imei,
                 'deleteCard': 'false', 'channel': 'web', 'serviceToken': self._Service_Token, 'onlineNotify': onlinenotify, 'message':json.dumps(message)}
-        _LOGGER.debug("lost command: %s", url)
         try:
             with async_timeout.timeout(15, loop=self.hass.loop):
                 r = await session.post(url, headers=_send_lost_command_header, data=data)
@@ -319,11 +318,10 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
         _send_clipboard_command_header = {
             'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
         data = {'text': text, 'serviceToken': self._Service_Token}
-        _LOGGER.debug("lost command: %s", url)
         try:
             with async_timeout.timeout(15, loop=self.hass.loop):
                 r = await session.post(url, headers=_send_clipboard_command_header, data=data)
-            _LOGGER.debug("lost res: %s", await r.json())    
+            _LOGGER.debug("clipboard res: %s", await r.json())    
             if r.status == 200:
                 flag = True
                 self.service = None
@@ -352,11 +350,11 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                 int(round(time.time() * 1000)), imei)
             _send_find_device_command_header = {
                 'Cookie': 'userId={};serviceToken={}'.format(self.userId, self._Service_Token)}
-            # _LOGGER.debug("get_device_location: %s", url)
             try:
                 with async_timeout.timeout(15, loop=self.hass.loop):
                     r = await session.get(url, headers=_send_find_device_command_header)
                 if r.status == 200:
+                    _LOGGER.debug("get_device_location_data: %s", json.loads(await r.text()))
                     if "receipt" in json.loads(await r.text())['data']['location']:
                         device_info = {}
                         location_info_json = {}
@@ -365,7 +363,7 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                         elif self._coordinate_type == "google":
                             location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfoExtra'][0]
                         else:
-                            location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfoExtra'][1]
+                            location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfo']
                         
                         device_info["device_lat"] = location_info_json['latitude']
                         device_info["device_accuracy"] = int(location_info_json['accuracy'])
@@ -377,7 +375,6 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                         device_info["device_phone"] = json.loads(
                             await r.text())['data']['location']['receipt'].get('phone',0)
                         timeArray = time.localtime(int(json.loads(
-                            # await r.text())['data']['location']['receipt']['infoTime']) / 1000 + 28800)
                             await r.text())['data']['location']['receipt']['infoTime']) / 1000)
                         device_info["device_location_update_time"] = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
                         device_info["imei"] = imei
@@ -388,16 +385,13 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                         self.login_result = False
                 else:
                     self.login_result = False
-                    # return False
             except BaseException as e:
                 self.login_result = False
                 _LOGGER.warning(e)
-                # return False
         return devices_info
 
     async def _async_update_data(self):
         """Update data via library."""
-        # _LOGGER.debug("update data START")
         _LOGGER.debug("service: %s", self.service)
         try:
             session = async_get_clientsession(self.hass)

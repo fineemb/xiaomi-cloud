@@ -4,7 +4,7 @@
  * @Description   : 
  * @Date          : 2020-08-26 16:20:12
  * @LastEditors   : fineemb
- * @LastEditTime  : 2020-10-04 12:26:38
+ * @LastEditTime  : 2020-10-10 15:43:49
 -->
 
 # 小米云服务
@@ -31,6 +31,9 @@
   
 + ### v1.2.1
   + 修复数据不更新的问题
+
++ ### v1.2.2
+  + 小米不在提供`original`坐标格式, 默认改为`baidu`坐标
   
 ## 安装配置
 
