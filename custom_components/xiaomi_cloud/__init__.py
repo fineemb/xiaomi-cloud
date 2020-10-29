@@ -12,6 +12,7 @@ import logging
 import re
 import base64
 import hashlib
+import math
 from urllib import parse
 import async_timeout
 from aiohttp.client_exceptions import ClientConnectorError
@@ -362,6 +363,19 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                             location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfo']
                         elif self._coordinate_type == "google":
                             location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfoExtra'][0]
+                        elif self._coordinate_type == "original":
+                            gpsInfoExtra = json.loads(await r.text())['data']['location']['receipt']['gpsInfoExtra']
+                            if(len(gpsInfoExtra)>1):
+                                location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfoExtra'][1]
+                            else:
+                                wgs84 = self.GCJ2WGS(gpsInfoExtra[0]['longitude'],gpsInfoExtra[0]['latitude'])
+                                _LOGGER.debug("get_device_location_data_wgs84: %s", wgs84)
+                                location_info_json = {
+                                    "accuracy":int(gpsInfoExtra[0]['accuracy']),
+                                    "coordinateType":'wgs84',
+                                    "latitude":wgs84[1],
+                                    "longitude":wgs84[0],
+                                }
                         else:
                             location_info_json = json.loads(await r.text())['data']['location']['receipt']['gpsInfo']
                         
@@ -389,6 +403,32 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
                 self.login_result = False
                 _LOGGER.warning(e)
         return devices_info
+    def GCJ2WGS(self,lon,lat):
+        a = 6378245.0 # 克拉索夫斯基椭球参数长半轴a
+        ee = 0.00669342162296594323 #克拉索夫斯基椭球参数第一偏心率平方
+        PI = 3.14159265358979324 # 圆周率
+
+        x = lon - 105.0
+        y = lat - 35.0
+
+        dLon = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x));
+        dLon += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0;
+        dLon += (20.0 * math.sin(x * PI) + 40.0 * math.sin(x / 3.0 * PI)) * 2.0 / 3.0;
+        dLon += (150.0 * math.sin(x / 12.0 * PI) + 300.0 * math.sin(x / 30.0 * PI)) * 2.0 / 3.0;
+
+        dLat = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x));
+        dLat += (20.0 * math.sin(6.0 * x * PI) + 20.0 * math.sin(2.0 * x * PI)) * 2.0 / 3.0;
+        dLat += (20.0 * math.sin(y * PI) + 40.0 * math.sin(y / 3.0 * PI)) * 2.0 / 3.0;
+        dLat += (160.0 * math.sin(y / 12.0 * PI) + 320 * math.sin(y * PI / 30.0)) * 2.0 / 3.0;
+        radLat = lat / 180.0 * PI
+        magic = math.sin(radLat)
+        magic = 1 - ee * magic * magic
+        sqrtMagic = math.sqrt(magic)
+        dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * PI);
+        dLon = (dLon * 180.0) / (a / sqrtMagic * math.cos(radLat) * PI);
+        wgsLon = lon - dLon
+        wgsLat = lat - dLat
+        return [wgsLon,wgsLat]
 
     async def _async_update_data(self):
         """Update data via library."""

@@ -256,8 +256,8 @@ class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
                     ):int,
                     vol.Optional(
                         CONF_COORDINATE_TYPE,
-                        default=self.config_entry.options.get(CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_BAIDU),
-                    ): vol.In([CONF_COORDINATE_TYPE_BAIDU, CONF_COORDINATE_TYPE_GOOGLE])
+                        default=self.config_entry.options.get(CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_ORIGINAL),
+                    ): vol.In([CONF_COORDINATE_TYPE_BAIDU, CONF_COORDINATE_TYPE_GOOGLE, CONF_COORDINATE_TYPE_ORIGINAL])
                 }
             ),
         )

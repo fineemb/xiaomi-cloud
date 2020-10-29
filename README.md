@@ -4,7 +4,7 @@
  * @Description   : 
  * @Date          : 2020-08-26 16:20:12
  * @LastEditors   : fineemb
- * @LastEditTime  : 2020-10-10 15:43:49
+ * @LastEditTime  : 2020-10-29 15:56:01
 -->
 
 # 小米云服务
@@ -35,6 +35,9 @@
 + ### v1.2.2
   + 小米不在提供`original`坐标格式, 默认改为`baidu`坐标
   
++ ### v1.2.3
+  + `original`坐标格式回归
+
 ## 安装配置
 
 建议使用HACS安装,在配置-集成里面添加和设置
