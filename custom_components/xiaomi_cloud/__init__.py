@@ -50,7 +50,7 @@ async def async_setup_entry(hass, config_entry) -> bool:
     """Set up xiaomi cloud as config entry."""
     username = config_entry.data[CONF_USERNAME]
     password = config_entry.data[CONF_PASSWORD]
-    scan_interval = config_entry.options.get(CONF_SCAN_INTERVAL, 5)
+    scan_interval = config_entry.options.get(CONF_SCAN_INTERVAL, 60)
     coordinate_type = config_entry.options.get(CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_ORIGINAL)
 
     _LOGGER.debug("Username: %s", username)
@@ -143,13 +143,14 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _get_sign(self, session):
         url = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-        pattern = re.compile(r'_sign":"(.*?)",')
+        pattern = re.compile(r'_sign=(.*?)&')
         
         try:
             with async_timeout.timeout(15, loop=self.hass.loop):
                 r = await session.get(url, headers=self._headers)
-            self._cookies['pass_trace'] = r.headers.getall('Set-Cookie')[2].split(";")[0].split("=")[1]
-            self._sign = pattern.findall(await r.text())[0]
+            self._cookies['pass_trace'] = r.history[0].headers.getall('Set-Cookie')[2].split(";")[0].split("=")[1]
+            _LOGGER.debug("--2---%s",parse.unquote(pattern.findall(r.history[0].headers.getall('Location')[0])[0]))
+            self._sign = parse.unquote(pattern.findall(r.history[0].headers.getall('Location')[0])[0])
             return True
         except BaseException as e:
             _LOGGER.warning(e.args[0])
@@ -160,10 +161,8 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
         self._headers['Content-Type'] = 'application/x-www-form-urlencoded'
         self._headers['Accept'] = '*/*'
         self._headers['Origin'] = 'https://account.xiaomi.com'
-        self._headers[
-            'Referer'] = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-        self._headers['Cookie'] = 'pass_trace={};'.format(
-            self._cookies['pass_trace'])
+        self._headers['Referer'] = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
+        self._headers['Cookie'] = 'pass_trace={};'.format(self._cookies['pass_trace'])
 
         auth_post_data = {'_json': 'true',
                           '_sign': self._sign,

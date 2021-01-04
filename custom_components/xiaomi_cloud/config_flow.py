@@ -252,7 +252,7 @@ class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 5),
+                        default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 60),
                     ):int,
                     vol.Optional(
                         CONF_COORDINATE_TYPE,
