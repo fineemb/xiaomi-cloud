@@ -4,6 +4,7 @@
   "documentation": "https://github.com/fineemb/xiaomi-cloud",
   "issue_tracker": "https://github.com/fineemb/xiaomi-cloud/issues",
   "dependencies": [],
+  "version": "1.2.5",
   "config_flow": true,
   "codeowners": ["@fineemb"],
   "requirements": []
