@@ -9,7 +9,7 @@
 
 # 小米云服务
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
 
 小米云服务, 支持一个账号下的多设备
 提供`device_tracker`用来定位设备
