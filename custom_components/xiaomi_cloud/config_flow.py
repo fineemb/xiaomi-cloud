@@ -6,6 +6,8 @@ import time
 import re
 import base64
 import hashlib
+import traceback
+
 import voluptuous as vol
 from urllib import parse
 import async_timeout
@@ -115,13 +117,15 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return False
             return await self._show_config_form(user_input)
         return await self._show_config_form(user_input)
+
     async def _get_sign(self, session):
         url = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
         pattern = re.compile(r'_sign=(.*?)&')
         
         try:
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.get(url, headers=self._headers)
+            # with async_timeout.timeout(15, loop=self.hass.loop):
+            #     r = await session.get(url, headers=self._headers)
+            r = await session.get(url, headers=self._headers)
             self._cookies['pass_trace'] = r.history[0].headers.getall('Set-Cookie')[2].split(";")[0].split("=")[1]
             _LOGGER.debug("--2---%s",parse.unquote(pattern.findall(r.history[0].headers.getall('Location')[0])[0]))
             self._sign = parse.unquote(pattern.findall(r.history[0].headers.getall('Location')[0])[0])
@@ -153,8 +157,9 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 auth_post_data['captCode'] = captCode
                 self._headers['Cookie'] = self._headers['Cookie'] + \
                                           '; ick={}'.format(self._cookies['ick'])
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.post(url, headers=self._headers, data=auth_post_data, cookies=self._cookies)
+            # with async_timeout.timeout(15, loop=self.hass.loop):
+            #     r = await session.post(url, headers=self._headers, data=auth_post_data, cookies=self._cookies)
+            r = await session.post(url, headers=self._headers, data=auth_post_data, cookies=self._cookies)
             self._cookies['pwdToken'] = r.cookies.get('passToken').value
             self._serviceLoginAuth2_json = json.loads((await r.text())[11:])
             _LOGGER.debug("_serviceLoginAuth2_json: %s", self._serviceLoginAuth2_json['ssecurity'])
@@ -173,8 +178,9 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         url = self._serviceLoginAuth2_json['location'] + \
               "&clientSign=" + parse.quote(base64_serviceToken.decode())
         try:
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.get(url, headers=loginmiai_header)
+            # with async_timeout.timeout(15, loop=self.hass.loop):
+            #     r = await session.get(url, headers=loginmiai_header)
+            r = await session.get(url, headers=loginmiai_header)
             if r.status == 200:
                 self._Service_Token = r.cookies.get('serviceToken').value
                 self.userId = r.cookies.get('userId').value
@@ -191,17 +197,16 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         get_device_list_header = {'Cookie': 'userId={};serviceToken={}'.format(
             self.userId, self._Service_Token)}
         try:
-            with async_timeout.timeout(15, loop=self.hass.loop):
-                r = await session.get(url, headers=get_device_list_header)
+            r = await session.get(url, headers=get_device_list_header)
+            # with async_timeout.timeout(15, loop=self.hass.loop):
+            #     r = await session.get(url, headers=get_device_list_header)
             if r.status == 200:
-                data = json.loads(await
-                    r.text())['data']['devices']
-
+                data = json.loads(await r.text())['data']['devices']
                 return data
             else:
                 return False
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
+        except:
+            _LOGGER.warning(traceback.format_exc())
             return False
 
     async def _show_config_form(self, user_input):
@@ -229,6 +234,7 @@ class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if host == entry.data.get(CONF_NAME):
                 return True
 
+
 class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
     """Config flow options for Colorfulclouds."""
 
@@ -252,7 +258,7 @@ class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
                         default=self.config_entry.options.get(CONF_SCAN_INTERVAL, 60),
-                    ):int,
+                    ): int,
                     vol.Optional(
                         CONF_COORDINATE_TYPE,
                         default=self.config_entry.options.get(CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_ORIGINAL),
