@@ -1,256 +1,306 @@
+"""Config flow for Xiaomi Cloud."""
 
-"""Adds config flow for Colorfulclouds."""
+from collections import OrderedDict
 import logging
-import json
+import secrets
 import time
-import re
-import base64
-import hashlib
 import traceback
 
+import aiohttp
 import voluptuous as vol
-from urllib import parse
-import async_timeout
-from collections import OrderedDict
-from homeassistant.helpers import aiohttp_client, config_validation as cv
-from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 
-from homeassistant import config_entries, core, exceptions
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.core import callback
+from homeassistant import config_entries
 from homeassistant.const import (
-    CONF_ACCESS_TOKEN,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
-    CONF_TOKEN,
     CONF_USERNAME,
 )
+from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
+from .api import (
+    browser_cookie_header,
+    browser_find_device_credentials,
+    check_find_access,
+    check_todo_access,
+    config_entry_data,
+)
 from .const import (
-    CONF_WAKE_ON_START,
-    DEFAULT_SCAN_INTERVAL,
-    DEFAULT_WAKE_ON_START,
-    DOMAIN,
-    MIN_SCAN_INTERVAL,
+    CONF_LOST_NOTIFY,
+    CONF_LOST_PHONE,
     CONF_COORDINATE_TYPE,
     CONF_COORDINATE_TYPE_BAIDU,
+    CONF_COORDINATE_TYPE_GOOGLE,
     CONF_COORDINATE_TYPE_ORIGINAL,
-    CONF_COORDINATE_TYPE_GOOGLE
+    DOMAIN,
 )
-
-
 
 _LOGGER = logging.getLogger(__name__)
 
-@config_entries.HANDLERS.register(DOMAIN)
+
+def _parse_cookie_header(cookie_header: str) -> dict[str, str]:
+    """Parse a Cookie header into a key/value map."""
+    cookies = {}
+    for part in cookie_header.split(";"):
+        if "=" in part:
+            key, _, value = part.strip().partition("=")
+            cookies[key.strip()] = value.strip()
+    return cookies
+
+
 class XiaomiCloudlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Xiaomi Cloud."""
+
+    VERSION = 1
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return XiaomiCloudOptionsFlow(config_entry)
+        return XiaomiCloudOptionsFlow()
 
     def __init__(self):
         """Initialize."""
         self._errors = {}
-        self.login_result = False
         self._user = None
-        self._password = None
-        self._headers = {}
-        self._cookies = {}
-        self._serviceLoginAuth2_json = {}
-        self._sign = None
+        self._password = ""
 
-    async def async_step_user(self, user_input={}):
+    async def async_step_user(self, user_input=None):
+        """Handle the initial step."""
         self._errors = {}
-        if user_input is not None:
-            # Check if entered host is already in HomeAssistant
-            existing = await self._check_existing(user_input[CONF_USERNAME])
-            if existing:
-                return self.async_abort(reason="already_configured")
+        if user_input is None:
+            return self._show_config_form()
 
-            # If it is not, continue with communication test
-            self._user = user_input[CONF_USERNAME]
-            self._password = user_input[CONF_PASSWORD]
+        if user_input.get("manual_input"):
+            self._user = str(user_input.get(CONF_USERNAME, "")).strip()
+            self._password = str(user_input.get(CONF_PASSWORD, ""))
+            return await self.async_step_manual()
 
-            session = async_get_clientsession(self.hass)
-            url = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-            pattern = re.compile(r'_sign":"(.*?)",')
-            
-            try:
-                
-                session = async_get_clientsession(self.hass)
-                session.cookie_jar.clear()
-                tmp = await self._get_sign(session)
-                if not tmp:
-                    _LOGGER.warning("get_sign Failed")
-                    self._errors["base"] = "get_sign_failed"
-                    return await self._show_config_form(user_input)
-                else:
-                    tmp = await self._serviceLoginAuth2(session)
-                    _LOGGER.debug("_serviceLoginAuth2: %s", tmp)
-                    if not tmp:
-                        _LOGGER.warning('Request Login_url Failed')
-                        self._errors["base"] = "login_url_failed"
-                        return await self._show_config_form(user_input)
-                    else:
-                        if self._serviceLoginAuth2_json['code'] == 0:
-                            # logon success,run self._login_miai()
-                            tmp = await self._login_miai(session)
-                            if not tmp:
-                                _LOGGER.warning('login Mi Cloud Failed')
-                                self._errors["base"] = "login_mi_cloud_failed"
-                                return await self._show_config_form(user_input)
-                            else:
-                                tmp = await self._get_device_info(session)
-                                if not tmp:
-                                    _LOGGER.warning('get_device info Failed')
-                                    self._errors["base"] = "get_device_failed"
-                                    return await self._show_config_form(user_input)
-                                else:
-                                    return self.async_create_entry(
-                                        title=user_input[CONF_USERNAME], data=user_input
-                                    )
-                return True
-            except BaseException as e:
-                _LOGGER.warning(e.args[0])
+        username = str(user_input.get(CONF_USERNAME, "")).strip()
+        password = str(user_input.get(CONF_PASSWORD, ""))
+        if not username or not password:
+            self._errors["base"] = "login_url_failed"
+            return self._show_config_form(user_input)
+
+        existing = await self._check_existing(username)
+        if existing:
+            return self.async_abort(reason="already_configured")
+
+        self._user = username
+        self._password = password
+
+        session = async_create_clientsession(
+            self.hass,
+            auto_cleanup=False,
+            cookie_jar=aiohttp.CookieJar(unsafe=True),
+        )
+        try:
+            credentials = await browser_find_device_credentials(
+                session, username, password
+            )
+            if credentials is None:
+                _LOGGER.warning("Xiaomi browser password login failed")
+                self._errors["base"] = "login_verification_required"
+                return self._show_config_form(user_input)
+            service_token, user_id, cookie_header = credentials
+
+            if not await self._get_device_info(session, service_token, user_id):
+                _LOGGER.warning("get_device info Failed")
+                self._errors["base"] = "get_device_failed"
+                return self._show_config_form(user_input)
+
+            return self.async_create_entry(
+                title=username,
+                data=config_entry_data(
+                    username, password, service_token, user_id, cookie_header
+                ),
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Login error: %s", err)
+            self._errors["base"] = "login_url_failed"
+            return self._show_config_form(user_input)
+        finally:
+            session.detach()
+
+    async def async_step_manual(self, user_input=None):
+        """Handle manual serviceToken / userId input."""
+        self._errors = {}
+        if user_input is None:
+            return self._show_manual_form()
+
+        cookie_header = str(user_input.get("cookies", "")).strip()
+        service_token = str(user_input.get("serviceToken", "")).strip()
+        user_id = str(user_input.get("userId", "")).strip()
+
+        if cookie_header:
+            extracted = _parse_cookie_header(cookie_header)
+            service_token = extracted.get("serviceToken") or service_token
+            user_id = extracted.get("userId") or user_id
+
+        if not service_token or not user_id:
+            self._errors["base"] = "manual_cookie_invalid"
+            return self._show_manual_form()
+
+        if not cookie_header:
+            cookie_header = f"userId={user_id};serviceToken={service_token}"
+
+        session = async_create_clientsession(self.hass)
+        try:
+            device_info = await self._get_device_info(
+                session, service_token, user_id
+            )
+            todo_ok = await check_todo_access(
+                session,
+                browser_cookie_header(
+                    cookie_header, service_token, user_id, secrets.token_hex(12)
+                ),
+            )
+        finally:
+            session.detach()
+
+        if not device_info:
+            _LOGGER.warning("Manual Xiaomi credentials are invalid")
+            self._errors["base"] = "manual_cookie_invalid"
+            return self._show_manual_form()
+
+        if not todo_ok:
+            _LOGGER.warning("Manual cookies cannot access the Xiaomi note API")
+            self._errors["base"] = "manual_cookie_invalid"
+            return self._show_manual_form()
+
+        return self.async_create_entry(
+            title=self._user or user_id,
+            data={
+                CONF_USERNAME: self._user or user_id,
+                CONF_PASSWORD: self._password or "",
+                "serviceToken": service_token,
+                "userId": user_id,
+                "cookies": cookie_header,
+                "manual": True,
+            },
+        )
+
+    async def _get_device_info(self, session, service_token, user_id):
+        url = "https://i.mi.com/find/v3/device/status/list"
+        headers = {
+            "Cookie": f"userId={user_id};serviceToken={service_token}",
+            "Accept-Language": "zh-CN",
+            "Referer": "https://i.mi.com/find",
+        }
+        try:
+            r = await session.get(
+                url,
+                headers=headers,
+                params={"ts": int(time.time() * 1000)},
+            )
+            if r.status != 200:
                 return False
-            return await self._show_config_form(user_input)
-        return await self._show_config_form(user_input)
 
-    async def _get_sign(self, session):
-        url = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-        pattern = re.compile(r'_sign=(.*?)&')
-        
-        try:
-            # with async_timeout.timeout(15, loop=self.hass.loop):
-            #     r = await session.get(url, headers=self._headers)
-            r = await session.get(url, headers=self._headers)
-            self._cookies['pass_trace'] = r.history[0].headers.getall('Set-Cookie')[2].split(";")[0].split("=")[1]
-            _LOGGER.debug("--2---%s",parse.unquote(pattern.findall(r.history[0].headers.getall('Location')[0])[0]))
-            self._sign = parse.unquote(pattern.findall(r.history[0].headers.getall('Location')[0])[0])
-            return True
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
-            return False
-
-    async def _serviceLoginAuth2(self, session, captCode=None):
-        url = 'https://account.xiaomi.com/pass/serviceLoginAuth2'
-        self._headers['Content-Type'] = 'application/x-www-form-urlencoded'
-        self._headers['Accept'] = '*/*'
-        self._headers['Origin'] = 'https://account.xiaomi.com'
-        self._headers['Referer'] = 'https://account.xiaomi.com/pass/serviceLogin?sid%3Di.mi.com&sid=i.mi.com&_locale=zh_CN&_snsNone=true'
-        self._headers['Cookie'] = 'pass_trace={};'.format(self._cookies['pass_trace'])
-
-        auth_post_data = {'_json': 'true',
-                          '_sign': self._sign,
-                          'callback': 'https://i.mi.com/sts',
-                          'hash': hashlib.md5(self._password.encode('utf-8')).hexdigest().upper(),
-                          'qs': '%3Fsid%253Di.mi.com%26sid%3Di.mi.com%26_locale%3Dzh_CN%26_snsNone%3Dtrue',
-                          'serviceParam': '{"checkSafePhone":false}',
-                          'sid': 'i.mi.com',
-                          'user': self._user}
-        try:
-            if captCode != None:
-                url = 'https://account.xiaomi.com/pass/serviceLoginAuth2?_dc={}'.format(
-                    int(round(time.time() * 1000)))
-                auth_post_data['captCode'] = captCode
-                self._headers['Cookie'] = self._headers['Cookie'] + \
-                                          '; ick={}'.format(self._cookies['ick'])
-            # with async_timeout.timeout(15, loop=self.hass.loop):
-            #     r = await session.post(url, headers=self._headers, data=auth_post_data, cookies=self._cookies)
-            r = await session.post(url, headers=self._headers, data=auth_post_data, cookies=self._cookies)
-            self._cookies['pwdToken'] = r.cookies.get('passToken').value
-            self._serviceLoginAuth2_json = json.loads((await r.text())[11:])
-            _LOGGER.debug("_serviceLoginAuth2_json: %s", self._serviceLoginAuth2_json['ssecurity'])
-            return True
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
-            return False
-
-    async def _login_miai(self, session):
-        serviceToken = "nonce={}&{}".format(
-            self._serviceLoginAuth2_json['nonce'], self._serviceLoginAuth2_json['ssecurity'])
-        serviceToken_sha1 = hashlib.sha1(serviceToken.encode('utf-8')).digest()
-        base64_serviceToken = base64.b64encode(serviceToken_sha1)
-        loginmiai_header = {'User-Agent': 'MISoundBox/1.4.0,iosPassportSDK/iOS-3.2.7 iOS/11.2.5',
-                            'Accept-Language': 'zh-cn', 'Connection': 'keep-alive'}
-        url = self._serviceLoginAuth2_json['location'] + \
-              "&clientSign=" + parse.quote(base64_serviceToken.decode())
-        try:
-            # with async_timeout.timeout(15, loop=self.hass.loop):
-            #     r = await session.get(url, headers=loginmiai_header)
-            r = await session.get(url, headers=loginmiai_header)
-            if r.status == 200:
-                self._Service_Token = r.cookies.get('serviceToken').value
-                self.userId = r.cookies.get('userId').value
-                return True
-            else:
+            response = await r.json(content_type=None)
+            if response.get("result") != "ok":
                 return False
-        except BaseException as e:
-            _LOGGER.warning(e.args[0])
-            return False
-
-    async def _get_device_info(self, session):
-        url = 'https://i.mi.com/find/device/full/status?ts={}'.format(
-            int(round(time.time() * 1000)))
-        get_device_list_header = {'Cookie': 'userId={};serviceToken={}'.format(
-            self.userId, self._Service_Token)}
-        try:
-            r = await session.get(url, headers=get_device_list_header)
-            # with async_timeout.timeout(15, loop=self.hass.loop):
-            #     r = await session.get(url, headers=get_device_list_header)
-            if r.status == 200:
-                data = json.loads(await r.text())['data']['devices']
-                return data
-            else:
-                return False
-        except:
+            return response["data"]["deviceList"]
+        except (aiohttp.ClientError, KeyError, ValueError):
             _LOGGER.warning(traceback.format_exc())
             return False
 
-    async def _show_config_form(self, user_input):
-
+    def _show_config_form(self, user_input=None):
+        username = str((user_input or {}).get(CONF_USERNAME, "")).strip()
         data_schema = OrderedDict()
-        data_schema[vol.Required(CONF_USERNAME)] = str
-        data_schema[vol.Required(CONF_PASSWORD)] = str
+        data_schema[vol.Required(CONF_USERNAME, default=username)] = str
+        data_schema[vol.Optional(CONF_PASSWORD)] = str
+        data_schema[vol.Optional("manual_input", default=False)] = bool
         return self.async_show_form(
-            step_id="user", data_schema=vol.Schema(data_schema), errors=self._errors
+            step_id="user",
+            data_schema=vol.Schema(data_schema),
+            errors=self._errors,
+        )
+
+    def _show_manual_form(self):
+        data_schema = vol.Schema(
+            {
+                vol.Optional("serviceToken", default=""): str,
+                vol.Optional("userId", default=""): str,
+                vol.Optional("cookies", default=""): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=data_schema,
+            errors=self._errors,
         )
 
     async def async_step_import(self, user_input):
-        """Import a config entry.
-
-        Special type of import, we're not actually going to store any data.
-        Instead, we're going to rely on the values that are in config file.
-        """
+        """Import a config entry."""
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
 
         return self.async_create_entry(title="configuration.yaml", data={})
 
-    async def _check_existing(self, host):
+    async def _check_existing(self, username):
         for entry in self._async_current_entries():
-            if host == entry.data.get(CONF_NAME):
+            if username == entry.data.get(CONF_USERNAME):
                 return True
+        return False
 
 
 class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
-    """Config flow options for Colorfulclouds."""
-
-    def __init__(self, config_entry):
-        """Initialize Colorfulclouds options flow."""
-        self.config_entry = config_entry
+    """Handle options."""
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         return await self.async_step_user()
 
     async def async_step_user(self, user_input=None):
-        """Handle a flow initialized by the user."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        """Handle the options step."""
+        if user_input is None:
+            return self._show_options_form()
 
+        cookies = str(user_input.get("cookies", "")).strip()
+        if cookies:
+            parsed = _parse_cookie_header(cookies)
+            user_id = parsed.get("userId") or self.config_entry.data.get("userId")
+            service_token = parsed.get("serviceToken") or self.config_entry.data.get(
+                "serviceToken"
+            )
+            if not user_id or not service_token:
+                return self._show_options_form(errors={"base": "manual_cookie_invalid"})
+
+            session = async_create_clientsession(self.hass)
+            try:
+                find_ok = await check_find_access(session, user_id, service_token)
+                todo_ok = await check_todo_access(
+                    session,
+                    browser_cookie_header(
+                        cookies, service_token, user_id, secrets.token_hex(12)
+                    ),
+                )
+            finally:
+                session.detach()
+
+            if not find_ok and not todo_ok:
+                _LOGGER.warning("Pasted cookies are invalid (find=%s, todo=%s)", find_ok, todo_ok)
+                return self._show_options_form(errors={"base": "manual_cookie_invalid"})
+
+            # Persist the session into the entry data so the coordinator
+            # picks it up after the reload triggered by the options change.
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={
+                    **self.config_entry.data,
+                    "cookies": cookies,
+                    "serviceToken": service_token,
+                    "userId": user_id,
+                },
+            )
+            _LOGGER.info("Xiaomi Cloud cookies updated (find=%s, todo=%s)", find_ok, todo_ok)
+
+        options_data = {
+            key: value for key, value in user_input.items() if key != "cookies"
+        }
+        return self.async_create_entry(title="", data=options_data)
+
+    def _show_options_form(self, errors=None):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -261,9 +311,26 @@ class XiaomiCloudOptionsFlow(config_entries.OptionsFlow):
                     ): int,
                     vol.Optional(
                         CONF_COORDINATE_TYPE,
-                        default=self.config_entry.options.get(CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_ORIGINAL),
-                    ): vol.In([CONF_COORDINATE_TYPE_BAIDU, CONF_COORDINATE_TYPE_GOOGLE, CONF_COORDINATE_TYPE_ORIGINAL])
+                        default=self.config_entry.options.get(
+                            CONF_COORDINATE_TYPE, CONF_COORDINATE_TYPE_ORIGINAL
+                        ),
+                    ): vol.In(
+                        [
+                            CONF_COORDINATE_TYPE_BAIDU,
+                            CONF_COORDINATE_TYPE_GOOGLE,
+                            CONF_COORDINATE_TYPE_ORIGINAL,
+                        ]
+                    ),
+                    vol.Optional(
+                        CONF_LOST_PHONE,
+                        default=self.config_entry.options.get(CONF_LOST_PHONE, ""),
+                    ): str,
+                    vol.Optional(
+                        CONF_LOST_NOTIFY,
+                        default=self.config_entry.options.get(CONF_LOST_NOTIFY, True),
+                    ): bool,
+                    vol.Optional("cookies", default=""): str,
                 }
             ),
+            errors=errors or {},
         )
-

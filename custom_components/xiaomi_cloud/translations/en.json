@@ -1,13 +1,109 @@
 {
+    "entity": {
+        "button": {
+            "locate": {
+                "name": "Locate device"
+            },
+            "lost": {
+                "name": "Lost mode"
+            },
+            "noise": {
+                "name": "Play sound"
+            }
+        },
+        "device_tracker": {
+            "location": {
+                "name": "Location"
+            }
+        },
+        "text": {
+            "clipboard": {
+                "name": "Cloud clipboard"
+            },
+            "lost_message": {
+                "name": "Lost mode message"
+            }
+        },
+        "sensor": {
+            "address": {
+                "name": "Address"
+            },
+            "charging": {
+                "name": "Charging",
+                "state": {
+                    "charging": "Charging",
+                    "not_charging": "Not charging"
+                }
+            },
+            "device_status": {
+                "name": "Device status",
+                "state": {
+                    "on": "Online",
+                    "off": "Offline",
+                    "lost": "Lost"
+                }
+            },
+            "lost_mode": {
+                "name": "Lost mode",
+                "state": {
+                    "enabled": "Enabled",
+                    "disabled": "Disabled"
+                }
+            },
+            "offline_find": {
+                "name": "Offline find",
+                "state": {
+                    "enabled": "Enabled",
+                    "disabled": "Disabled"
+                }
+            },
+            "wipe": {
+                "name": "Wipe data",
+                "state": {
+                    "enabled": "Enabled",
+                    "disabled": "Disabled"
+                }
+            },
+            "share_location": {
+                "name": "Share location",
+                "state": {
+                    "on": "On",
+                    "off": "Off"
+                }
+            },
+            "support_sms": {
+                "name": "SMS commands",
+                "state": {
+                    "on": "Supported",
+                    "off": "Not supported"
+                }
+            }
+        },
+        "todo": {
+            "todos": {
+                "name": "To-do list"
+            }
+        }
+    },
     "config": {
         "title": "Xiaomi Cloud",
         "step": {
             "user": {
                 "title": "Xiaomi Cloud",
-                "description": "If you need help with the configuration have a look here: https://github.com/fineemb/xiaomi-cloud",
+                "description": "If you need help with the configuration have a look here: https://github.com/fineemb/xiaomi-cloud\n\nIf automatic login fails due to security verification, tick \"Enter cookies manually\" and fill in the serviceToken and userId from the i.mi.com browser cookies.",
                 "data": {
                     "password": "Password",
-                    "username": "Username"
+                    "username": "Username",
+                    "manual_input": "Enter cookies manually (if automatic login fails)"
+                }
+            },
+            "manual": {
+                "title": "Manual Cookie Input",
+                "description": "If automatic login fails due to security verification, log in to i.mi.com in your browser and enter serviceToken and userId. If the to-do/notes API returns 401, paste the full i.mi.com Cookie header into the \"Full cookies\" field.",
+                "data": {
+                    "serviceToken": "serviceToken",
+                    "userId": "userId",
+                    "cookies": "Full cookies (optional, paste the whole Cookie header from i.mi.com)"
                 }
             }
         },
@@ -15,10 +111,12 @@
             "get_sign_failed": "Get sign failed",
             "login_url_failed": "Login failed",
             "login_mi_cloud_failed": "Login xiaomi cloud failed",
-            "get_device_failed": "Get device failed"
+            "get_device_failed": "Get device failed",
+            "login_verification_required": "Account requires security verification. Please log in to i.mi.com in your browser first, or use the \"Enter cookies manually\" option.",
+            "manual_cookie_invalid": "The provided serviceToken or userId is invalid. Please check and try again."
         },
         "abort": {
-            "single_instance_allowed": "Only a single configuration of Colorfulclouds Weather is allowed.",
+            "single_instance_allowed": "Only a single configuration of Xiaomi Cloud is allowed.",
             "already_configured": "This is already configured."
         }
     },
@@ -27,7 +125,10 @@
             "user": {
                 "data": {
                     "scan_interval": "Scan interval",
-                    "coordinate_type": "Coordinate type"
+                    "coordinate_type": "Coordinate type",
+                    "lost_phone": "Contact phone number",
+                    "lost_notify": "Notify by SMS when the device is located",
+                    "cookies": "Cookies (full string, optional, to update the login session)"
                 }
             }
         }

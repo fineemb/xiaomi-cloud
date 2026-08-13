@@ -1,13 +1,109 @@
 {
+    "entity": {
+        "button": {
+            "locate": {
+                "name": "查找设备"
+            },
+            "lost": {
+                "name": "丢失模式"
+            },
+            "noise": {
+                "name": "响铃"
+            }
+        },
+        "device_tracker": {
+            "location": {
+                "name": "位置"
+            }
+        },
+        "text": {
+            "clipboard": {
+                "name": "云剪贴板"
+            },
+            "lost_message": {
+                "name": "丢失模式留言"
+            }
+        },
+        "sensor": {
+            "address": {
+                "name": "地址"
+            },
+            "charging": {
+                "name": "充电状态",
+                "state": {
+                    "charging": "充电中",
+                    "not_charging": "未充电"
+                }
+            },
+            "device_status": {
+                "name": "设备状态",
+                "state": {
+                    "on": "在线",
+                    "off": "离线",
+                    "lost": "丢失"
+                }
+            },
+            "lost_mode": {
+                "name": "丢失模式",
+                "state": {
+                    "enabled": "已开启",
+                    "disabled": "已关闭"
+                }
+            },
+            "offline_find": {
+                "name": "离线查找",
+                "state": {
+                    "enabled": "已开启",
+                    "disabled": "已关闭"
+                }
+            },
+            "wipe": {
+                "name": "擦除数据",
+                "state": {
+                    "enabled": "已开启",
+                    "disabled": "已关闭"
+                }
+            },
+            "share_location": {
+                "name": "位置共享",
+                "state": {
+                    "on": "开启",
+                    "off": "关闭"
+                }
+            },
+            "support_sms": {
+                "name": "短信指令",
+                "state": {
+                    "on": "支持",
+                    "off": "不支持"
+                }
+            }
+        },
+        "todo": {
+            "todos": {
+                "name": "待办"
+            }
+        }
+    },
     "config": {
         "title": "小米云服务",
         "step": {
             "user": {
                 "title": "小米云服务",
-                "description": "如果您需要配置方面的帮助，请查看此处: https://github.com/fineemb/xiaomi-cloud",
+                "description": "如果您需要配置方面的帮助，请查看此处: https://github.com/fineemb/xiaomi-cloud\n\n如果自动登录因安全验证失败，请勾选「手动输入 cookies」并填入浏览器中 i.mi.com 的 serviceToken 与 userId。",
                 "data": {
                     "password": "密码",
-                    "username": "账号"
+                    "username": "账号",
+                    "manual_input": "手动输入 cookies（如果自动登录失败）"
+                }
+            },
+            "manual": {
+                "title": "手动输入 Cookie",
+                "description": "如果自动登录因安全验证失败，请先在浏览器中登录 i.mi.com，然后填入 serviceToken 和 userId；若待办/笔记接口 401，请把浏览器 i.mi.com 的完整 Cookie 整段粘贴到「完整 Cookie」字段。",
+                "data": {
+                    "serviceToken": "serviceToken",
+                    "userId": "userId",
+                    "cookies": "完整 Cookie（可选，浏览器 i.mi.com 的 Cookie 整段）"
                 }
             }
         },
@@ -15,7 +111,9 @@
             "get_sign_failed": "获得Sign失败",
             "login_url_failed": "登录失败",
             "login_mi_cloud_failed": "登录小米云失败",
-            "get_device_failed": "没有找到设备"
+            "get_device_failed": "没有找到设备",
+            "login_verification_required": "账号需要安全验证。请先在浏览器中登录 i.mi.com 完成验证，或者改用「手动输入 cookies」方式。",
+            "manual_cookie_invalid": "提供的 serviceToken 或 userId 无效，请检查后重试。"
         },
         "abort": {
             "single_instance_allowed": "仅允许单个配置.",
@@ -27,7 +125,10 @@
             "user": {
                 "data": {
                     "scan_interval": "位置更新时间间隔",
-                    "coordinate_type": "坐标体系"
+                    "coordinate_type": "坐标体系",
+                    "lost_phone": "联系电话",
+                    "lost_notify": "定位到丢失设备时短信通知",
+                    "cookies": "Cookie（完整字符串，可选，用于更新登录会话）"
                 }
             }
         }

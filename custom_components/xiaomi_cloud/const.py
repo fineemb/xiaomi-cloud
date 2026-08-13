@@ -22,4 +22,7 @@ CONF_COORDINATE_TYPE = "coordinate_type"
 CONF_COORDINATE_TYPE_BAIDU = "baidu"
 CONF_COORDINATE_TYPE_ORIGINAL = "original"
 CONF_COORDINATE_TYPE_GOOGLE = "google"
+CONF_LOST_CONTENT = "lost_content"
+CONF_LOST_PHONE = "lost_phone"
+CONF_LOST_NOTIFY = "lost_notify"
 
