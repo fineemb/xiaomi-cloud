@@ -92,6 +92,7 @@ class XiaomiDeviceEntity(TrackerEntity, RestoreEntity, Entity):
         """Return the device info."""
         return {
             "identifiers": {(DOMAIN, self._unique_id)},
+            "via_device": (DOMAIN, f"account_{self.coordinator.entry_id}"),
             "name": self._device_name,
             "manufacturer": "Xiaomi",
             "sw_version": self._attr_sw_version,

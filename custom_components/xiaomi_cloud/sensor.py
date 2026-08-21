@@ -94,6 +94,7 @@ class XiaomiDeviceSensor(SensorEntity, Entity):
         """Return the device info, grouped with the tracker entity."""
         return {
             "identifiers": {(DOMAIN, self._imei)},
+            "via_device": (DOMAIN, f"account_{self.coordinator.entry_id}"),
             "name": self._device_name,
             "manufacturer": "Xiaomi",
             "model": self._device_name,

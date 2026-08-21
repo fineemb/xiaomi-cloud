@@ -75,6 +75,7 @@ async def async_setup_entry(hass, config_entry) -> bool:
         lost_phone=config_entry.options.get(CONF_LOST_PHONE, ""),
         lost_notify=config_entry.options.get(CONF_LOST_NOTIFY, True),
         cookies=config_entry.data.get("cookies"),
+        entry_id=config_entry.entry_id,
     )
     await coordinator.async_refresh()
 

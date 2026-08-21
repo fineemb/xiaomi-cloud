@@ -48,6 +48,7 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
         lost_phone="",
         lost_notify=True,
         cookies="",
+        entry_id="",
     ):
         """Initialize."""
         self._username = user
@@ -61,6 +62,7 @@ class XiaomiCloudDataUpdateCoordinator(DataUpdateCoordinator):
         self._credential_update_callback = credential_update_callback
         self._cookies_str = cookies
         self._csrf_token = secrets.token_hex(12)
+        self.entry_id = entry_id
         self.lost_content = {}
         self.lost_phone = lost_phone
         self.lost_notify = lost_notify
